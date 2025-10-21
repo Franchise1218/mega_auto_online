@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
     libnss3 \
-    libgconf-2-4 \
     libxi6 \
     libxss1 \
     libappindicator3-1 \
