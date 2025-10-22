@@ -38,8 +38,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 📁 Copy your orchestration script
 COPY mega_online_auto.py .
 
-# 📁 Create data directory for logs
-RUN mkdir -p /data/retry_logs
+# 📁 Copy login data and retry logs
+COPY data/ /data/
 
 # 🚀 Entry point
 CMD ["python", "mega_online_auto.py"]
