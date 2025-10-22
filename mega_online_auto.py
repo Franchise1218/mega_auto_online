@@ -43,7 +43,7 @@ def launch_driver():
     service = Service(CHROMEDRIVER_PATH)
 
     try:
-        version = subprocess.check_output(["google-chrome", "--version"]).decode().strip()
+        version = subprocess.check_output(["chromium", "--version"]).decode().strip()
         log_event("CHROME_VERSION", version)
     except Exception as e:
         log_event("CHROME_VERSION_ERROR", str(e))
@@ -104,7 +104,17 @@ def login_to_mega(email, password, log_failures=True):
                     f.write(f"{email},{password}\n")
 
     except Exception as e:
-        log_event("EXCEPTION", f"{email} — {e}")
+        msg = str(e)
+        log_event("EXCEPTION", f"{email} — {msg}")
+        if "tab crashed" in msg:
+            log_event("RETRY", f"{email} — Retrying after tab crash...")
+            time.sleep(5)
+            try:
+                driver.quit()
+                time.sleep(2)
+                return login_to_mega(email, password, log_failures)
+            except Exception as retry_e:
+                log_event("RETRY_FAIL", f"{email} — {retry_e}")
         if log_failures:
             with open(FAILED_LOGINS_FILE, "a") as f:
                 f.write(f"{email},{password}\n")
@@ -135,7 +145,7 @@ def retry_failed_logins():
         with open(retry_log_path, "a") as log:
             status = "SUCCESS" if success else "FAILED"
             log.write(f"{email},{password},{status}\n")
-        time.sleep(2)
+        time.sleep(3)
 
     log_event("RETRY", f"Retry pass completed. Log saved to: {retry_log_path}")
 
@@ -156,7 +166,7 @@ def batch_login():
 
     for email, password in credentials:
         login_to_mega(email, password)
-        time.sleep(2)
+        time.sleep(3)
 
     log_event("BATCH", "Initial batch completed.")
     retry_failed_logins()
@@ -174,6 +184,7 @@ def index():
 
 @app.route("/run")
 def run_batch():
+    log_event("ROUTE", "Received /run trigger.")
     batch_login()
     return "Batch login triggered."
 
