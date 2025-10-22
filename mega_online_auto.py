@@ -63,12 +63,16 @@ def load_credentials(file_path):
     return credentials
 
 # 🔐 Attempt login to Mega.nz
-def login_to_mega(email, password, log_failures=True):
+def login_to_mega(email, password, log_failures=True, attempt=1):
+    if attempt > 3:
+        log_event("RETRY_FAIL", f"{email} — Max retries exceeded.")
+        return False
+
     driver = launch_driver()
-    driver.get("https://mega.nz/login")
     success = False
 
     try:
+        driver.get("https://mega.nz/login")
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Your email address']"))
         )
@@ -106,21 +110,30 @@ def login_to_mega(email, password, log_failures=True):
     except Exception as e:
         msg = str(e)
         log_event("EXCEPTION", f"{email} — {msg}")
+
         if "tab crashed" in msg:
             log_event("RETRY", f"{email} — Retrying after tab crash...")
             time.sleep(5)
             try:
                 driver.quit()
                 time.sleep(2)
-                return login_to_mega(email, password, log_failures)
+                return login_to_mega(email, password, log_failures, attempt + 1)
             except Exception as retry_e:
                 log_event("RETRY_FAIL", f"{email} — {retry_e}")
+
+        elif "invalid session id" in msg:
+            log_event("SESSION_ERROR", f"{email} — Browser session lost.")
+            return False
+
         if log_failures:
             with open(FAILED_LOGINS_FILE, "a") as f:
                 f.write(f"{email},{password}\n")
 
     finally:
-        driver.quit()
+        try:
+            driver.quit()
+        except:
+            pass
         time.sleep(3)
 
     return success
@@ -164,9 +177,12 @@ def batch_login():
     if os.path.exists(FAILED_LOGINS_FILE):
         os.remove(FAILED_LOGINS_FILE)
 
-    for email, password in credentials:
+    for i, (email, password) in enumerate(credentials):
         login_to_mega(email, password)
         time.sleep(3)
+        if i % 10 == 0 and i != 0:
+            log_event("THROTTLE", "Cooling container for 10 seconds...")
+            time.sleep(10)
 
     log_event("BATCH", "Initial batch completed.")
     retry_failed_logins()
