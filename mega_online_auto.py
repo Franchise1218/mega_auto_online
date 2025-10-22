@@ -4,6 +4,7 @@ import time
 import csv
 import subprocess
 from datetime import datetime
+from flask import Flask
 
 # 🌐 Selenium WebDriver Components
 from selenium import webdriver
@@ -164,10 +165,19 @@ def batch_login():
     minutes, seconds = divmod(int(duration), 60)
     log_event("BATCH", f"Total runtime: {minutes}m {seconds}s")
 
-# 🧭 Entry point with heartbeat
-if __name__ == "__main__":
+# 🌐 Flask Web Interface
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "Mega Auto Online is alive."
+
+@app.route("/run")
+def run_batch():
     batch_login()
-    log_event("COMPLETE", "Batch login finished. Keeping container alive for inspection.")
-    while True:
-        log_event("HEARTBEAT", f"Container is alive at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        time.sleep(60)
+    return "Batch login triggered."
+
+# 🧭 Entry point
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
